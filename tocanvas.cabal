@@ -48,7 +48,7 @@ library
     , wreq
   default-language: Haskell2010
 
-executable tocanvas-exe
+executable tocanvaswithlove
   main-is: Main.hs
   other-modules:
       Paths_tocanvas

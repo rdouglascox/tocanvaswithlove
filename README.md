@@ -72,3 +72,55 @@ At this stage, `tocanvaswithlove` is a proof of concept. I hope to add more feat
 * Use `citeproc` to include citations in the markdown files.
 * Configure a Canvas course from a configuration file with information about the assignments and the module structure among other things. 
 
+A few notes on the implementation. It is relatively easy to model the Canvas API with Haskell data types. Here is the data type for a Canvas page:
+
+```{.haskell} 
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+module CanvasData where
+
+import Data.Aeson
+import GHC.Generics
+
+data Page = Page {title :: String, body :: String, published :: Bool}
+  deriving (Show, Generic)
+
+data WikiPage = WikiPage {wiki_page :: Page}
+  deriving (Show, Generic)
+
+instance ToJSON Page
+instance FromJSON Page
+
+instance ToJSON WikiPage
+instance FromJSON WikiPage
+```
+
+We can automatically derive the functions for converting to and from JSON. Other data types are similarly easy to model. 
+
+The function for posting a page to Canvas is also straightforward:
+
+```{.haskell} 
+authAndPostPage :: BaseUrl -> CourseId -> Page -> AccessToken -> IO ()
+authAndPostPage b c p a = do
+  let ops = defaults & header "Authorization" .~ [append "Bearer " a] & header "Content-Type" .~ ["application/json"]
+  let url = b <> "/courses/" <> c <> "/pages"
+  let bdy = encode (WikiPage p)
+  r <- postWith ops url bdy
+  putStrLn $ show r
+```
+
+And the function for converting a markdown file to a page is also straightforward:
+```{.haskell}  
+markdowntopage :: FilePath -> IO Page
+markdowntopage path = do
+  filecontent <- T.readFile path
+  result <- runIOorExplode $ do
+    markdown <- readMarkdown def{readerStandalone = True, readerExtensions = enableExtension Ext_yaml_metadata_block pandocExtensions} filecontent
+    let ttl = gettitle markdown
+    cont <- writeHtml5String def markdown
+    return (Page (unpack ttl) (unpack cont) True)
+  return result
+```
+
+

@@ -312,5 +312,52 @@ files.</li>
 <li>Configure a Canvas course from a configuration file with information
 about the assignments and the module structure among other things.</li>
 </ul>
+<p>A few notes on the implementation. It is relatively easy to model the
+Canvas API with Haskell data types. Here is the data type for a Canvas
+page:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE DeriveGeneric #-}</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> <span class="dt">CanvasData</span> <span class="kw">where</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">Data.Aeson</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="dt">GHC.Generics</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">Page</span> <span class="ot">=</span> <span class="dt">Page</span> {<span class="ot">title ::</span> <span class="dt">String</span>,<span class="ot"> body ::</span> <span class="dt">String</span>,<span class="ot"> published ::</span> <span class="dt">Bool</span>}</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Generic</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">WikiPage</span> <span class="ot">=</span> <span class="dt">WikiPage</span> {<span class="ot">wiki_page ::</span> <span class="dt">Page</span>}</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Generic</span>)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">Page</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">Page</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">ToJSON</span> <span class="dt">WikiPage</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="kw">instance</span> <span class="dt">FromJSON</span> <span class="dt">WikiPage</span></span></code></pre></div>
+<p>We can automatically derive the functions for converting to and from
+JSON. Other data types are similarly easy to model.</p>
+<p>The function for posting a page to Canvas is also
+straightforward:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ot">authAndPostPage ::</span> <span class="dt">BaseUrl</span> <span class="ot">-&gt;</span> <span class="dt">CourseId</span> <span class="ot">-&gt;</span> <span class="dt">Page</span> <span class="ot">-&gt;</span> <span class="dt">AccessToken</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>authAndPostPage b c p a <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> ops <span class="ot">=</span> defaults <span class="op">&amp;</span> header <span class="st">&quot;Authorization&quot;</span> <span class="op">.~</span> [append <span class="st">&quot;Bearer &quot;</span> a] <span class="op">&amp;</span> header <span class="st">&quot;Content-Type&quot;</span> <span class="op">.~</span> [<span class="st">&quot;application/json&quot;</span>]</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> url <span class="ot">=</span> b <span class="op">&lt;&gt;</span> <span class="st">&quot;/courses/&quot;</span> <span class="op">&lt;&gt;</span> c <span class="op">&lt;&gt;</span> <span class="st">&quot;/pages&quot;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> bdy <span class="ot">=</span> encode (<span class="dt">WikiPage</span> p)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  r <span class="ot">&lt;-</span> postWith ops url bdy</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">putStrLn</span> <span class="op">$</span> <span class="fu">show</span> r</span></code></pre></div>
+<p>And the function for converting a markdown file to a page is also
+straightforward:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ot">markdowntopage ::</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Page</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>markdowntopage path <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  filecontent <span class="ot">&lt;-</span> T.readFile path</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">&lt;-</span> runIOorExplode <span class="op">$</span> <span class="kw">do</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    markdown <span class="ot">&lt;-</span> readMarkdown def{readerStandalone <span class="ot">=</span> <span class="dt">True</span>, readerExtensions <span class="ot">=</span> enableExtension <span class="dt">Ext_yaml_metadata_block</span> pandocExtensions} filecontent</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> ttl <span class="ot">=</span> gettitle markdown</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    cont <span class="ot">&lt;-</span> writeHtml5String def markdown</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span> (<span class="dt">Page</span> (unpack ttl) (unpack cont) <span class="dt">True</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> result</span></code></pre></div>
 </body>
 </html>

@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveGeneric #-}
--- overloaded strings are enabled by the OverloadedStrings language pragma
 {-# LANGUAGE OverloadedStrings #-}
 
 module CanvasData where
